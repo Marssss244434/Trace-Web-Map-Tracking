@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRACE - Transport Rank & Carbon Estimator</title>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="css/style.css">
+
+    <style>
+        html {
+            scroll-behavior: smooth;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="container header-container" style="position: relative;">
+
+            <div class="logo-container">
+                <img src="assets/img/logo.svg" alt="Logo TRACE" class="logo-img">
+
+                <div class="logo-text">
+                    <span class="logo-title">TRACE</span>
+                    <span class="logo-subtitle">
+                        Transport Rank & Carbon Estimator
+                    </span>
+                </div>
+            </div>
+
+            <nav class="nav-links">
+                <a href="#" class="nav-item">Profile</a>
+
+                <a href="maps.html" class="nav-item">Kunjungi</a>
+
+                <a href="#tentang" class="nav-item">
+                    Tentang Kami
+                </a>
+            </nav>
+
+            <button class="menu-btn" id="openMenuBtn">
+                <i class="fa-solid fa-bars"></i>
+            </button>
+
+            <div class="mobile-dropdown" id="mobileDropdown">
+
+                <a href="#" class="dropdown-link" style="--i: 1;">
+                    <i class="fa-solid fa-user"></i> Profile
+                </a>
+
+                <a href="maps.html" class="dropdown-link" style="--i: 2;">
+                    <i class="fa-solid fa-map-location-dot"></i> Kunjungi
+                </a>
+
+                <a href="#tentang" class="dropdown-link" style="--i: 3;">
+                    <i class="fa-solid fa-circle-info"></i> Tentang Kami
+                </a>
+
+            </div>
+        </div>
+    </header>
+
+    <section class="hero-section">
+        <div class="hero-overlay">
+            <div class="container">
+
+                <!-- REVISI 1: Judul hero diubah -->
+                <h1 class="hero-title">
+                    Temukan Pilihan<br>
+                    Perjalanan Terbaikmu
+                </h1>
+
+                <!-- REVISI 2: Subtitle hero diubah -->
+                <p class="hero-subtitle">
+                    Mendukung Keputusan Mobilitas yang Efisien
+                    dan Berkelanjutan
+                </p>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- SECTION TUJUAN -->
+    <section id="tentang" class="cards-section">
+
+        <div class="container cards-container">
+
+            <div class="card">
+
+                <div class="card-header">
+                    <i class="fa-solid fa-eye"></i>
+                    <span>Visi Kami</span>
+                </div>
+
+                <!-- REVISI 2: Teks visi diubah -->
+                <div class="card-text">
+                    Menjadi teman perjalanan yang membantu pengguna
+                    menemukan pilihan transportasi terbaik setiap hari.
+                </div>
+
+            </div>
+
+            <div class="card">
+
+                <div class="card-header">
+                    <i class="fa-solid fa-rocket"></i>
+                    <span>Misi Kami</span>
+                </div>
+
+                <!-- REVISI 2: Teks misi tetap sama sesuai permintaan -->
+                <div class="card-text">
+                    Menyajikan informasi perjalanan yang praktis melalui perbandingan jarak, waktu, biaya, dan emisi karbon
+                </div>
+
+            </div>
+
+        </div>
+    </section>
+
+    <div class="cta-wrapper">
+
+        <a href="maps.html" class="cta-button">
+            Mulai Perjalanan Hijau Anda
+            <i class="fa-solid fa-arrow-right"></i>
+        </a>
+
+    </div>
+
+    <footer class="bottom-section">
+
+        <div class="container footer-content">
+
+            <div class="footer-contacts">
+
+                <div class="contact-item">
+                    <i class="fa-brands fa-whatsapp"></i>
+
+                    <a href="https://wa.me/6282131131927" target="_blank">
+                        +62 821-3113-1927
+                    </a>
+                </div>
+
+                <div class="contact-item">
+                    <i class="fa-regular fa-envelope"></i>
+
+                    <a href="mailto:trace.co.id">
+                        trace.co.id
+                    </a>
+                </div>
+
+                <div class="contact-item">
+                    <i class="fa-brands fa-instagram"></i>
+
+                    <a href="https://instagram.com/trace" target="_blank">
+                        @trace
+                    </a>
+                </div>
+
+            </div>
+
+            <div class="copyright">
+                &copy; TRACE - Support by LPPM UM 2026
+            </div>
+
+        </div>
+    </footer>
+
+    <script>
+        const menuBtn = document.getElementById('openMenuBtn');
+        const dropdown = document.getElementById('mobileDropdown');
+
+        // Toggle menu
+        menuBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            dropdown.classList.toggle('active');
+        });
+
+        // Tutup menu saat klik luar
+        document.addEventListener('click', (e) => {
+            if (
+                !dropdown.contains(e.target) &&
+                !menuBtn.contains(e.target)
+            ) {
+                dropdown.classList.remove('active');
+            }
+        });
+    </script>
+
+</body>
+</html>

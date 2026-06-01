@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TRACE Maps</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"/>
+    <link rel="stylesheet" href="./css/maps.css">
+</head>
+<body>
+
+    <!-- MAP -->
+    <div id="map">
+        <button id="liveLocationBtn" class="live-location-btn">
+            <i class="fa-solid fa-location-crosshairs"></i>
+        </button>
+    </div>
+
+    <!-- SEARCH TOP BAR -->
+    <div class="search-box" id="searchBox">
+        <button class="back-btn" onclick="window.location.href='index.html'">
+            <i class="fa-solid fa-chevron-left"></i>
+        </button>
+        <input type="text" placeholder="Temukan Lokasi tujuan" id="openPanel" readonly>
+    </div>
+
+    <!-- ================================================
+         PANEL 1: ATUR PERJALANAN
+    ================================================ -->
+    <div class="route-panel" id="routePanel">
+        <div class="sheet-handle"></div>
+
+        <div class="panel-header">
+            <button class="back-btn" id="closePanel">
+                <i class="fa-solid fa-chevron-left"></i>
+            </button>
+            <h3>Atur Perjalanan</h3>
+        </div>
+
+        <!-- CARD LOKASI -->
+        <div class="lokasi-card">
+
+            <!-- Baris Asal -->
+            <div class="lokasi-row" id="rowAsal">
+                <!-- dot + centang -->
+                <div class="lokasi-dot-wrap">
+                    <div class="lokasi-dot dot-origin" id="dotAsal"></div>
+                    <i class="fa-solid fa-circle-check lokasi-check" id="checkAsal"></i>
+                </div>
+
+                <div class="lokasi-input-wrap">
+                    <span class="lokasi-label-float" id="labelAsal">Asal</span>
+                    <input
+                        id="lokasiInput"
+                        class="lokasi-input"
+                        type="text"
+                        placeholder="Cari lokasi anda"
+                        autocomplete="off"
+                    />
+                </div>
+
+                <!-- REVISI 7: Tombol "Pilih dari Maps" juga di input asal -->
+                <button class="pin-map-btn" id="pinMapBtnAsal" title="Pilih lokasi asal dari peta">
+                    <i class="fa-solid fa-map-pin"></i>
+                    <span>Pilih Dari Maps</span>
+                </button>
+            </div>
+            <div id="lokasiSuggestion" class="suggestion-box"></div>
+
+            <!-- Separator -->
+            <div class="lokasi-separator">
+                <div class="sep-line"></div>
+            </div>
+
+            <!-- Baris Tujuan -->
+            <div class="lokasi-row" id="rowTujuan">
+                <!-- dot + centang -->
+                <div class="lokasi-dot-wrap">
+                    <div class="lokasi-dot dot-dest" id="dotTujuan"></div>
+                    <i class="fa-solid fa-circle-check lokasi-check" id="checkTujuan"></i>
+                </div>
+
+                <div class="lokasi-input-wrap">
+                    <span class="lokasi-label-float" id="labelTujuan">Tujuan</span>
+                    <input
+                        id="tujuanInput"
+                        class="lokasi-input"
+                        type="text"
+                        placeholder="Cari lokasi tujuan anda"
+                        autocomplete="off"
+                    />
+                </div>
+
+                <!-- Tombol pin peta kecil di pojok kanan -->
+                <button class="pin-map-btn" id="pinMapBtn" title="Pilih dari peta">
+                    <i class="fa-solid fa-map-pin"></i>
+                    <span>Pilih Dari Maps</span>
+                </button>
+            </div>
+            <div id="tujuanSuggestion" class="suggestion-box"></div>
+
+        </div><!-- /lokasi-card -->
+
+        <!-- SKEMA PEMBOBOTAN -->
+        <h4>Skema Pembobotan</h4>
+        <div class="weight-grid">
+            <div class="weight-card active">
+                <i class="fa-solid fa-scale-balanced"></i>
+                <span>Sama Rata</span>
+            </div>
+            <div class="weight-card">
+                <i class="fa-regular fa-star"></i>
+                <span>Prioritas</span>
+            </div>
+            <div class="weight-card">
+                <i class="fa-solid fa-leaf"></i>
+                <span>Efisiensi Karbon</span>
+            </div>
+        </div>
+
+        <button class="search-btn">Cari</button>
+    </div>
+
+    <!-- PANEL 2: PRIORITAS -->
+    <div class="route-panel" id="prioritasPanel"></div>
+
+    <!-- PANEL 3: REKOMENDASI -->
+    <div class="route-panel" id="rekomendasiPanel"></div>
+
+    <!-- PANEL 4: DETAIL -->
+    <div class="route-panel" id="detailPanel"></div>
+
+    <!-- PIN MAP OVERLAY (untuk tujuan - default) -->
+    <div id="pinMapOverlay" class="pin-map-overlay">
+        <div class="pin-map-crosshair">
+            <i class="fa-solid fa-crosshairs"></i>
+        </div>
+        <div class="pin-map-label" id="pinMapLabel">Geser peta, lalu ketuk tombol ini</div>
+        <button class="pin-map-confirm-btn" id="pinMapConfirmBtn">
+            <i class="fa-solid fa-check"></i> Pilih Lokasi Ini
+        </button>
+    </div>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="./js/maps.js"></script>
+
+    <!-- Indikator filled: dot + label float saat input terisi -->
+    <script>
+        function setupInputIndicator(inputId, dotId, checkId, labelId, rowId) {
+            const input = document.getElementById(inputId);
+            const dot   = document.getElementById(dotId);
+            const check = document.getElementById(checkId);
+            const label = document.getElementById(labelId);
+            const row   = document.getElementById(rowId);
+            if (!input) return;
+
+            function update() {
+                const filled = input.value.trim().length > 0;
+                dot.style.display   = filled ? 'none'  : 'block';
+                check.style.display = filled ? 'block' : 'none';
+                label.classList.toggle('visible', filled);
+                row.classList.toggle('filled', filled);
+            }
+
+            input.addEventListener('input', update);
+            // Panggil saat maps.js mengisi value secara programatik
+            const orig = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+            Object.defineProperty(input, 'value', {
+                get() { return orig.get.call(this); },
+                set(v) { orig.set.call(this, v); update(); }
+            });
+            update();
+        }
+
+        setupInputIndicator('lokasiInput',  'dotAsal',   'checkAsal',   'labelAsal',   'rowAsal');
+        setupInputIndicator('tujuanInput',  'dotTujuan', 'checkTujuan', 'labelTujuan', 'rowTujuan');
+    </script>
+</body>
+</html>

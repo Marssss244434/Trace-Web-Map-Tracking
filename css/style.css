@@ -1,0 +1,230 @@
+:root {
+    --primary-green: #6E9B41; 
+    --btn-green: #89AC54;     
+    --dark-green: #31522E;    
+    --text-dark: #111111;     
+    --bg-light: #ffffff;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Inter', sans-serif;
+}
+
+body {
+    background-color: var(--bg-light); 
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+.container {
+    width: 100%;
+    max-width: 1000px; 
+    margin: 0 auto;
+    padding: 0 25px; 
+}
+
+/* HEADER & LOGO */
+header {
+    background: white;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.header-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 15px;
+    padding-bottom: 15px;
+}
+
+.logo-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.logo-img { height: 38px; width: auto; object-fit: contain; }
+.logo-text { display: flex; flex-direction: column; }
+.logo-title { color: var(--primary-green); font-size: 22px; font-weight: 800; font-style: italic; letter-spacing: 1px; line-height: 1; }
+.logo-subtitle { font-size: 8px; color: #777; margin-top: 2px; }
+
+/* DESKTOP NAV */
+.nav-links { display: flex; align-items: center; gap: 35px; }
+.nav-item { position: relative; text-decoration: none; color: #555555; font-size: 15px; font-weight: 600; transition: color 0.3s ease; padding-bottom: 5px; }
+.nav-item:hover { color: var(--primary-green); }
+.nav-item::after {
+    content: ''; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
+    width: 0; height: 3px; background-color: var(--primary-green); border-radius: 3px; transition: width 0.3s ease; 
+}
+.nav-item:hover::after { width: 20px; }
+
+/* TOMBOL HAMBURGER */
+.menu-btn {
+    display: none; 
+    background-color: var(--btn-green); color: white; width: 35px; height: 35px;
+    border-radius: 8px; /* Lebih elegan dengan sudut agak membulat */
+    justify-content: center; align-items: center; border: none; cursor: pointer;
+    box-shadow: 0 4px 10px rgba(137, 172, 84, 0.3); transition: all 0.3s ease;
+}
+.menu-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 12px rgba(137, 172, 84, 0.4); }
+.menu-btn:active { transform: translateY(0) scale(0.95); }
+
+/* =========================================
+   DROPDOWN MENU KECIL (ANIMASI PREMIUM)
+   ========================================= */
+.mobile-dropdown {
+    position: absolute;
+    top: 65px; 
+    right: 25px; 
+    
+    /* Efek Glassmorphism (Kaca) */
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    
+    width: 210px;
+    border-radius: 16px;
+    box-shadow: 0 15px 35px rgba(0,0,0,0.12);
+    padding: 12px 10px;
+    display: flex;
+    flex-direction: column;
+    z-index: 99;
+    
+    /* Patokan awal animasi: Muncul/Mekar dari ujung kanan atas (dari arah tombol) */
+    transform-origin: top right;
+    transform: scale(0.4) translateY(-20px);
+    opacity: 0;
+    visibility: hidden;
+    
+    /* Kurva bezier ini bikin efek "Membal" (Spring/Bouncy) seperti iOS */
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.mobile-dropdown.active {
+    opacity: 1;
+    visibility: visible;
+    transform: scale(1) translateY(0);
+}
+
+.dropdown-link {
+    padding: 12px 15px;
+    color: #444;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 14px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    
+    /* Animasi Elegan: Teks Muncul dari Bawah ke Atas */
+    opacity: 0;
+    transform: translateY(15px) scale(0.95);
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); /* Transisi muncul */
+}
+
+/* Saat menu aktif, teks dipanggil masuk */
+.mobile-dropdown.active .dropdown-link {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    /* Muncul berurutan 1..2..3 berdasar variabel --i di HTML */
+    transition-delay: calc(0.08s * var(--i)); 
+}
+
+.dropdown-link i { 
+    font-size: 16px; 
+    color: var(--primary-green); 
+    width: 22px; 
+    text-align: center; 
+    transition: transform 0.3s ease;
+}
+
+/* Hover effect teks yang mewah (tidak kaku ganti warna pekat) */
+.dropdown-link:hover { 
+    background-color: #f4f8f1; /* Hijau super tipis */
+    color: var(--primary-green); 
+    transform: translateX(6px); /* Bergeser sedikit ke kanan saat ditunjuk */
+}
+
+.dropdown-link:hover i {
+    transform: scale(1.15); /* Icon sedikit membesar */
+}
+
+/* =========================================
+   HERO SECTION
+   ========================================= */
+.hero-section {
+    position: relative; height: 75vh; min-height: 550px;
+    background-image: url('../assets/img/trace.webp'); background-size: cover; background-position: center 75%; 
+}
+.hero-section::after {
+    content: ''; position: absolute; bottom: 0; left: 0; width: 100%; height: 35%; 
+    background: linear-gradient(to top, rgba(255,255,255,1) 0%, rgba(255,255,255,0.7) 40%, rgba(255,255,255,0) 100%); pointer-events: none; z-index: 1;
+}
+.hero-overlay {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; z-index: 2;
+}
+.hero-overlay .container { padding-bottom: 40px; }
+.hero-title { color: #ffffff; font-size: 42px; font-weight: 800; margin-bottom: 10px; line-height: 1.2; text-shadow: 0px 2px 8px rgba(0, 0, 0, 0.5); }
+.hero-subtitle { color: var(--text-dark); font-size: 16px; font-weight: 700; line-height: 1.5; max-width: 550px; }
+
+/* =========================================
+   CARDS
+   ========================================= */
+.cards-section { background-color: white; padding: 10px 0 60px 0; flex-grow: 1; }
+.cards-container { display: flex; flex-direction: row; gap: 25px; }
+.card { background: white; border-radius: 12px; padding: 30px; flex: 1; border: 1.5px solid var(--btn-green); box-shadow: 0 4px 15px rgba(0,0,0,0.05); transition: all 0.4s ease; }
+.card:hover { transform: translateY(-5px); border-color: var(--primary-green); box-shadow: 0 10px 20px rgba(110, 155, 65, 0.15); }
+.card-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; font-weight: 700; font-size: 18px; color: var(--text-dark); }
+.card-header i { color: var(--primary-green); font-size: 20px; }
+.card-text { font-size: 14px; color: #444; line-height: 1.6; }
+
+/* =========================================
+   CTA BUTTON
+   ========================================= */
+.cta-wrapper { display: flex; justify-content: center; background: transparent; z-index: 10; transform: translateY(50%); margin-top: -30px; }
+.cta-button { background-color: var(--btn-green); color: white; text-decoration: none; padding: 16px 45px; border-radius: 50px; font-weight: 700; font-size: 16px; display: flex; align-items: center; gap: 10px; box-shadow: 0 6px 15px rgba(137, 172, 84, 0.4); transition: all 0.3s ease; position: relative; overflow: hidden; }
+.cta-button::after { content: ''; position: absolute; top: 0; left: -100%; width: 50%; height: 100%; background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0) 100%); transform: skewX(-25deg); animation: kilap 3.5s infinite; }
+@keyframes kilap { 0% { left: -100%; } 20% { left: 200%; } 100% { left: 200%; } }
+.cta-button:hover { transform: scale(1.05); background-color: var(--primary-green); }
+
+/* =========================================
+   FOOTER
+   ========================================= */
+.bottom-section { background-color: var(--dark-green); padding-top: 60px; padding-bottom: 30px; }
+.footer-content { text-align: center; color: white; }
+.footer-contacts { display: flex; justify-content: center; gap: 30px; margin-bottom: 25px; font-size: 15px; }
+.contact-item { display: flex; align-items: center; gap: 8px; }
+.contact-item a { color: white; text-decoration: none; transition: opacity 0.2s ease; }
+.contact-item a:hover { opacity: 0.8; }
+.copyright { font-size: 13px; opacity: 0.7; border-top: 1px solid rgba(255,255,255,0.2); padding-top: 20px; }
+
+/* =========================================
+   MEDIA QUERY
+   ========================================= */
+@media screen and (max-width: 768px) {
+    .nav-links { display: none; }
+    .menu-btn { display: flex; }
+
+    .hero-section { height: 80vh; background-position: center 85%; }
+    .hero-section::after { height: 40%; }
+    .hero-title { font-size: 32px; margin-bottom: 8px; }
+    .hero-subtitle { font-size: 14px; max-width: 95%; }
+
+    .cards-container { flex-direction: column; gap: 15px; }
+    .card { padding: 20px; }
+
+    .footer-contacts { flex-direction: column; gap: 15px; align-items: center; }
+    .cta-button { padding: 14px 30px; font-size: 14px; }
+}
+
+html {
+    scroll-behavior: smooth;
+}
