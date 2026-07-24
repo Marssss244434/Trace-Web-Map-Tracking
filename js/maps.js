@@ -651,36 +651,66 @@ function indexTerdekatDiLine(coords, lat, lng) {
     return idx;
 }
 
-// REVISI 8: getSegmenBus sekarang mencari di 2 file jalur terpisah
-// (jalurPergiData & jalurPulangData), dan hanya menerima segmen yang
-// SEARAH dengan urutan titik pada garis tsb (idx1 < idx2). Ini mencegah
-// rute "melompat" ke arah yang salah seperti waktu masih 1 file gabungan.
-function getSegmenBus(halteLat1, halteLng1, halteLat2, halteLng2) {
-    const datasets = [jalurPergiData, jalurPulangData].filter(Boolean);
-    if (!datasets.length) return [[halteLat1, halteLng1], [halteLat2, halteLng2]];
+// REVISI 9: PENENTUAN ARAH BERDASARKAN NOMOR HALTE
+// Halte diberi nomor urut 1 (Terminal Hamid Rusdi) s/d 62 (Terminal Batu)
+// mengikuti urutan korridor. Nomor makin besar = makin dekat ke Batu.
+// Dengan ini kita TAHU DULU harus pakai file yang mana, tidak lagi
+// membandingkan dua file jalur sekaligus (itu yang bikin rute nyasar
+// lewat halte yang salah, mis. Rambu Pasar Bunulrejo).
+function getArahDataset(noAsal, noTujuan) {
+    if (noAsal > noTujuan) return jalurPergiData;   // arah Batu → Hamid Rusdi (nomor turun)
+    if (noAsal < noTujuan) return jalurPulangData;  // arah Hamid Rusdi → Batu (nomor naik)
+    return null; // halte asal & tujuan sama
+}
 
-    let jarakMin      = Infinity;
-    let coordsTerbaik = null;
+// REVISI 9: cari segmen jalur bus HANYA di 1 dataset yang sesuai arah
+// (datasetPilihan). Kalau datasetPilihan tidak diberikan, fallback ke
+// mode lama (cari di semua dataset yang ada) supaya tetap aman dipanggil
+// tanpa parameter itu. Mengembalikan koordinat (untuk digambar) SEKALIGUS
+// jarak dalam meter, supaya gambar rute & hitungan jarak selalu konsisten.
+function cariSegmenBus(halteLat1, halteLng1, halteLat2, halteLng2, datasetPilihan) {
+    const datasets = datasetPilihan
+        ? [datasetPilihan]
+        : [jalurPergiData, jalurPulangData].filter(Boolean);
+
+    if (!datasets.length) {
+        return {
+            coordsLatLng: [[halteLat1, halteLng1], [halteLat2, halteLng2]],
+            jarakM      : haversineM(halteLat1, halteLng1, halteLat2, halteLng2)
+        };
+    }
+
+    let jarakMin   = Infinity;
+    let segTerbaik = null;
 
     datasets.forEach(jalurData => {
         jalurData.features.forEach(feature => {
             const coords = feature.geometry.coordinates;
             const idx1   = indexTerdekatDiLine(coords, halteLat1, halteLng1);
             const idx2   = indexTerdekatDiLine(coords, halteLat2, halteLng2);
-            // hanya ambil kalau searah dengan arah garis ini
+            // hanya ambil kalau searah dengan urutan titik pada garis ini
             if (idx1 >= idx2) return;
 
             const segCoords = coords.slice(idx1, idx2 + 1);
             const jarak      = panjangLineString(segCoords);
             if (jarak < jarakMin) {
-                jarakMin      = jarak;
-                coordsTerbaik = segCoords;
+                jarakMin   = jarak;
+                segTerbaik = segCoords;
             }
         });
     });
 
-    if (!coordsTerbaik) return [[halteLat1, halteLng1], [halteLat2, halteLng2]];
-    return coordsTerbaik.map(c => [c[1], c[0]]);
+    if (!segTerbaik) {
+        return {
+            coordsLatLng: [[halteLat1, halteLng1], [halteLat2, halteLng2]],
+            jarakM      : haversineM(halteLat1, halteLng1, halteLat2, halteLng2)
+        };
+    }
+
+    return {
+        coordsLatLng: segTerbaik.map(c => [c[1], c[0]]),
+        jarakM      : jarakMin
+    };
 }
 
 // ======================
@@ -723,24 +753,14 @@ function hitungDataBus(originLat, originLng, destLat, destLng) {
     const modeAsal   = getModeAkses(jarakKendaraanAsalM);
     const modeTujuan = getModeAkses(jarakKendaraanTujuanM);
 
-    // REVISI 8: cari jarak bus di 2 dataset (pergi & pulang), hanya arah searah
-    let jarakBus = haversineM(hALat, hALng, hTLat, hTLng);
-    const datasetsJalur = [jalurPergiData, jalurPulangData].filter(Boolean);
-    if (datasetsJalur.length) {
-        let jarakMin = Infinity;
-        datasetsJalur.forEach(jalurData => {
-            jalurData.features.forEach(feature => {
-                const coords = feature.geometry.coordinates;
-                const idx1   = indexTerdekatDiLine(coords, hALat, hALng);
-                const idx2   = indexTerdekatDiLine(coords, hTLat, hTLng);
-                if (idx1 >= idx2) return; // hanya arah maju sesuai garis ini
-                const seg = coords.slice(idx1, idx2 + 1);
-                const j   = panjangLineString(seg);
-                if (j < jarakMin) jarakMin = j;
-            });
-        });
-        if (jarakMin < Infinity) jarakBus = jarakMin;
-    }
+    // REVISI 9: tentukan dataset (file jalur) yang benar berdasarkan
+    // nomor urut halte, lalu pakai SATU dataset itu saja untuk hitung jarak.
+    const noHalteAsal   = halteAsalObj.feature.properties["No"];
+    const noHalteTujuan = halteTujuanObj.feature.properties["No"];
+    const datasetTerpilih = getArahDataset(noHalteAsal, noHalteTujuan);
+
+    const segmenBus = cariSegmenBus(hALat, hALng, hTLat, hTLng, datasetTerpilih);
+    const jarakBus   = segmenBus.jarakM;
 
     const jarakAsalKm   = jarakKendaraanAsalM  / 1000;
     const jarakTujuanKm = jarakKendaraanTujuanM / 1000;
@@ -762,6 +782,8 @@ function hitungDataBus(originLat, originLng, destLat, destLng) {
         halteTujuanObj,
         namaHalteAsal        : halteAsalObj.feature.properties["Nama Halte"],
         namaHalteTujuan      : halteTujuanObj.feature.properties["Nama Halte"],
+        noHalteAsal,
+        noHalteTujuan,
         jarakKendaraanAsalM,
         jarakBusM            : jarakBus,
         jarakKendaraanTujuanM,
@@ -1075,15 +1097,17 @@ function tampilkanDetailDanRute(kendaraan, bobot, originLat, originLng, destLat,
 function gambatRuteBus(kendaraan, originLat, originLng, destLat, destLng) {
     const bd = kendaraan.busData;
     const { hALat, hALng, hTLat, hTLng, namaHalteAsal, namaHalteTujuan,
-            modeAsal, modeTujuan } = bd;
+            noHalteAsal, noHalteTujuan, modeAsal, modeTujuan } = bd;
 
     const warnaAsal   = modeAsal.mode   === 'jalan' ? '#F5A623' : '#4A90D9';
     const warnaTujuan = modeTujuan.mode === 'jalan' ? '#F5A623' : '#4A90D9';
     const tooltipAsal   = modeAsal.mode   === 'jalan' ? '🚶 Jalan kaki ke halte'   : '🏍 Kendaraan ke halte';
     const tooltipTujuan = modeTujuan.mode === 'jalan' ? '🚶 Jalan kaki dari halte' : '🏍 Kendaraan dari halte';
 
-    // Rute bus mengikuti jalur GeoJSON
-    const busCoords = getSegmenBus(hALat, hALng, hTLat, hTLng);
+    // REVISI 9: pakai dataset yang SAMA seperti waktu hitung jarak di hitungDataBus,
+    // supaya rute yang digambar & angka jarak yang ditampilkan selalu konsisten.
+    const datasetTerpilih = getArahDataset(noHalteAsal, noHalteTujuan);
+    const busCoords = cariSegmenBus(hALat, hALng, hTLat, hTLng, datasetTerpilih).coordsLatLng;
     const layerBus  = L.polyline(busCoords, {
         color: '#97AE48', weight: 6, opacity: 0.9, lineJoin: 'round'
     }).addTo(map);
