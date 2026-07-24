@@ -27,11 +27,13 @@ const halteIcon = L.icon({
 // ======================
 
 let halteDataGlobal       = null;
-let jalurDataGlobal       = null;
+// REVISI 8: jalur dipisah 2 arah (dulu 1 file gabungan → jalurDataGlobal)
+let jalurPergiData        = null; // Batu → Hamid Rusdi
+let jalurPulangData       = null; // Hamid Rusdi → Batu
 let halteLayerGroup       = null;
 let userMarker            = null;
 let originMarker          = null;
-let destMarker            = null;
+let destMarker             = null;
 let currentLat            = null;
 let currentLng            = null;
 let selectedOriginLatLng  = null;
@@ -266,9 +268,16 @@ fetch('./assets/data/geojson/Halte_K1_Malang.geojson')
     })
     .catch(e => console.warn('ERROR LOAD HALTE:', e));
 
-fetch('./assets/data/geojson/Jalur_K1_Malang.geojson')
-    .then(r => r.json())
-    .then(data => { jalurDataGlobal = data; })
+// REVISI 8: jalur sekarang 2 file terpisah (arah pergi & pulang)
+// dulu: fetch('./assets/data/geojson/Jalur_K1_Malang.geojson')
+Promise.all([
+    fetch('./assets/data/geojson/JALUR_K1_BATU-HAMIDRUSDI_1.geojson').then(r => r.json()),
+    fetch('./assets/data/geojson/JALUR_K1_HAMIDRUSDI-BATU_1.geojson').then(r => r.json())
+])
+    .then(([dataPergi, dataPulang]) => {
+        jalurPergiData  = dataPergi;   // Batu → Hamid Rusdi
+        jalurPulangData = dataPulang;  // Hamid Rusdi → Batu
+    })
     .catch(e => console.warn('ERROR LOAD JALUR:', e));
 
 function showHalteLayer() {
@@ -642,30 +651,32 @@ function indexTerdekatDiLine(coords, lat, lng) {
     return idx;
 }
 
+// REVISI 8: getSegmenBus sekarang mencari di 2 file jalur terpisah
+// (jalurPergiData & jalurPulangData), dan hanya menerima segmen yang
+// SEARAH dengan urutan titik pada garis tsb (idx1 < idx2). Ini mencegah
+// rute "melompat" ke arah yang salah seperti waktu masih 1 file gabungan.
 function getSegmenBus(halteLat1, halteLng1, halteLat2, halteLng2) {
-    if (!jalurDataGlobal) return [[halteLat1, halteLng1], [halteLat2, halteLng2]];
+    const datasets = [jalurPergiData, jalurPulangData].filter(Boolean);
+    if (!datasets.length) return [[halteLat1, halteLng1], [halteLat2, halteLng2]];
 
     let jarakMin      = Infinity;
     let coordsTerbaik = null;
 
-    jalurDataGlobal.features.forEach(feature => {
-        const coords = feature.geometry.coordinates;
-        const idx1   = indexTerdekatDiLine(coords, halteLat1, halteLng1);
-        const idx2   = indexTerdekatDiLine(coords, halteLat2, halteLng2);
-        if (idx1 === idx2) return;
+    datasets.forEach(jalurData => {
+        jalurData.features.forEach(feature => {
+            const coords = feature.geometry.coordinates;
+            const idx1   = indexTerdekatDiLine(coords, halteLat1, halteLng1);
+            const idx2   = indexTerdekatDiLine(coords, halteLat2, halteLng2);
+            // hanya ambil kalau searah dengan arah garis ini
+            if (idx1 >= idx2) return;
 
-        let segCoords;
-        if (idx1 < idx2) {
-            segCoords = coords.slice(idx1, idx2 + 1);
-        } else {
-            segCoords = coords.slice(idx2, idx1 + 1).reverse();
-        }
-
-        const jarak = panjangLineString(segCoords);
-        if (jarak < jarakMin) {
-            jarakMin      = jarak;
-            coordsTerbaik = segCoords;
-        }
+            const segCoords = coords.slice(idx1, idx2 + 1);
+            const jarak      = panjangLineString(segCoords);
+            if (jarak < jarakMin) {
+                jarakMin      = jarak;
+                coordsTerbaik = segCoords;
+            }
+        });
     });
 
     if (!coordsTerbaik) return [[halteLat1, halteLng1], [halteLat2, halteLng2]];
@@ -712,19 +723,21 @@ function hitungDataBus(originLat, originLng, destLat, destLng) {
     const modeAsal   = getModeAkses(jarakKendaraanAsalM);
     const modeTujuan = getModeAkses(jarakKendaraanTujuanM);
 
+    // REVISI 8: cari jarak bus di 2 dataset (pergi & pulang), hanya arah searah
     let jarakBus = haversineM(hALat, hALng, hTLat, hTLng);
-    if (jalurDataGlobal) {
+    const datasetsJalur = [jalurPergiData, jalurPulangData].filter(Boolean);
+    if (datasetsJalur.length) {
         let jarakMin = Infinity;
-        jalurDataGlobal.features.forEach(feature => {
-            const coords = feature.geometry.coordinates;
-            const idx1   = indexTerdekatDiLine(coords, hALat, hALng);
-            const idx2   = indexTerdekatDiLine(coords, hTLat, hTLng);
-            if (idx1 === idx2) return;
-            const seg    = idx1 < idx2
-                ? coords.slice(idx1, idx2 + 1)
-                : coords.slice(idx2, idx1 + 1).reverse();
-            const j = panjangLineString(seg);
-            if (j < jarakMin) jarakMin = j;
+        datasetsJalur.forEach(jalurData => {
+            jalurData.features.forEach(feature => {
+                const coords = feature.geometry.coordinates;
+                const idx1   = indexTerdekatDiLine(coords, hALat, hALng);
+                const idx2   = indexTerdekatDiLine(coords, hTLat, hTLng);
+                if (idx1 >= idx2) return; // hanya arah maju sesuai garis ini
+                const seg = coords.slice(idx1, idx2 + 1);
+                const j   = panjangLineString(seg);
+                if (j < jarakMin) jarakMin = j;
+            });
         });
         if (jarakMin < Infinity) jarakBus = jarakMin;
     }

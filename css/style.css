@@ -228,3 +228,195 @@ header {
 html {
     scroll-behavior: smooth;
 }
+
+/* =========================================
+   FOOTER BARU — kontak lengkap
+   ========================================= */
+
+/* Override padding footer agar lebih proporsional */
+.bottom-section {
+    padding-top: 52px;
+    padding-bottom: 0;
+}
+
+.footer-main {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 60px;
+    padding-bottom: 44px;
+}
+
+/* --- Kiri: brand & identitas --- */
+.footer-brand {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    flex: 1 1 260px;
+    min-width: 220px;
+}
+
+.footer-lppm-logo {
+    height: 110px;
+    width: auto;
+    object-fit: contain;
+    background: transparent;
+    flex-shrink: 0;
+}
+
+.footer-trace-name {
+    font-size: 22px;
+    font-weight: 800;
+    color: #97AE48;
+    font-style: italic;
+    letter-spacing: 1px;
+    line-height: 1;
+    margin-bottom: 3px;
+}
+
+.footer-trace-sub {
+    font-size: 10px;
+    color: rgba(255,255,255,0.4);
+    font-weight: 500;
+    letter-spacing: .3px;
+    margin-bottom: 10px;
+}
+
+.footer-dept {
+    font-size: 12.5px;
+    color: rgba(255,255,255,0.65);
+    line-height: 1.7;
+}
+
+/* --- Kanan: kolom kontak --- */
+.footer-contact-col {
+    flex: 0 0 200px;
+    min-width: 200px;
+}
+
+.footer-col-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: #97AE48;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+}
+
+.footer-contact-item {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    color: rgba(255,255,255,0.65);
+    text-decoration: none;
+    font-size: 13px;
+    margin-bottom: 13px;
+    transition: color 0.18s;
+}
+
+.footer-contact-item:last-child { margin-bottom: 0; }
+
+.footer-contact-item i {
+    width: 16px;
+    text-align: center;
+    color: #97AE48;
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
+.footer-contact-item:hover { color: white; }
+
+/* --- Garis bawah + copyright --- */
+.footer-bottom {
+    border-top: 1px solid rgba(255,255,255,0.1);
+    padding: 18px 0;
+    text-align: center;
+    font-size: 12px;
+    color: rgba(255,255,255,0.3);
+}
+
+/* --- Responsive --- */
+@media screen and (max-width: 768px) {
+    .footer-lppm-logo { height: 84px; }
+    .footer-trace-name { font-size: 18px; }
+}
+
+/* =========================================
+   KOLOM KONTAK & LOKASI KAMI (BARU)
+   ========================================= */
+.footer-lokasi-col {
+    flex: 0 0 230px;
+    min-width: 230px;
+}
+
+.footer-map-box {
+    position: relative;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.15);
+    height: 150px;
+}
+
+.footer-map-box iframe {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    display: block;
+}
+
+.footer-map-link {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: white;
+    color: var(--dark-green);
+    text-decoration: none;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 6px 10px;
+    border-radius: 6px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+}
+
+.footer-map-link i { font-size: 10px; }
+
+/* --- Responsive: susun vertikal, rapi & lega di HP --- */
+@media screen and (max-width: 768px) {
+    .footer-main {
+        flex-direction: column;
+        justify-content: flex-start;
+        align-items: center;
+        gap: 36px;
+        padding-bottom: 36px;
+    }
+
+    .footer-brand {
+        flex: 0 0 auto;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 10px;
+        width: 100%;
+    }
+
+    .footer-dept { text-align: center; }
+
+    .footer-contact-col,
+    .footer-lokasi-col {
+        flex: 0 0 auto;
+        min-width: unset;
+        width: 100%;
+        max-width: 360px;
+        text-align: center;
+    }
+
+    .footer-contact-item {
+        justify-content: center;
+    }
+
+    .footer-map-box { height: 190px; }
+}
