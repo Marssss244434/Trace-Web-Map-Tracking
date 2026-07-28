@@ -805,14 +805,57 @@ function hitungDataBus(originLat, originLng, destLat, destLng) {
 }
 
 // ======================
+// RUTE JALAN RAYA (OSRM) — DIPAKAI BERSAMA UNTUK MOTOR & MOBIL
+// FIX: sebelumnya panel "Rekomendasi Kendaraan" menghitung jarak pakai
+// garis lurus (haversine), sedangkan panel "Detail Perjalanan" menghitung
+// ulang pakai rute jalan asli dari OSRM — makanya angkanya beda begitu
+// tombol "Lanjut" ditekan. Sekarang KEDUA panel memakai fungsi yang sama
+// ini, dan hasilnya (jarak + koordinat rute) disimpan di objek kendaraan
+// supaya panel Detail tidak perlu fetch ulang dan tidak mungkin beda lagi.
+// ======================
+
+function getRuteJalanRaya(originLat, originLng, destLat, destLng) {
+    const osrmUrl =
+        `https://router.project-osrm.org/route/v1/driving/${originLng},${originLat};${destLng},${destLat}?overview=full&geometries=geojson`;
+
+    return fetch(osrmUrl)
+        .then(r => r.json())
+        .then(data => {
+            const rute = data.routes && data.routes[0];
+            if (!rute) throw new Error('Rute tidak ditemukan');
+            return {
+                coords : rute.geometry.coordinates.map(c => [c[1], c[0]]),
+                jarakKm: rute.distance / 1000
+            };
+        })
+        .catch(() => {
+            // fallback: kalau OSRM gagal/offline, pakai garis lurus
+            const jarakKm = haversineM(originLat, originLng, destLat, destLng) / 1000;
+            return {
+                coords : [[originLat, originLng], [destLat, destLng]],
+                jarakKm
+            };
+        });
+}
+
+// ======================
 // TOMBOL CARI UTAMA
 // ======================
 
 const mainSearchBtn = document.querySelector('#routePanel .search-btn');
 if (mainSearchBtn) {
-    mainSearchBtn.addEventListener('click', () => {
-        if (activeWeightScheme === 'prioritas') tampilkanPanelPrioritas();
-        else jalankanPencarian();
+    mainSearchBtn.addEventListener('click', async () => {
+        if (activeWeightScheme === 'prioritas') { tampilkanPanelPrioritas(); return; }
+
+        const teksAsli = mainSearchBtn.textContent;
+        mainSearchBtn.disabled    = true;
+        mainSearchBtn.textContent = 'Mencari rute...';
+        try {
+            await jalankanPencarian();
+        } finally {
+            mainSearchBtn.disabled    = false;
+            mainSearchBtn.textContent = teksAsli;
+        }
     });
 }
 
@@ -828,9 +871,12 @@ function getOriginCoords() {
 
 // ======================
 // JALANKAN PENCARIAN
+// FIX: sekarang async — motor & mobil memakai jarak rute jalan asli
+// (hasil getRuteJalanRaya), BUKAN garis lurus lagi. Koordinat rute juga
+// disimpan (routeCoords) supaya bisa dipakai ulang di panel Detail.
 // ======================
 
-function jalankanPencarian() {
+async function jalankanPencarian() {
     const origin = getOriginCoords();
     if (!origin)             { alert('Masukkan lokasi asal terlebih dahulu'); return; }
     if (!selectedDestLatLng) { alert('Masukkan lokasi tujuan terlebih dahulu'); return; }
@@ -843,7 +889,11 @@ function jalankanPencarian() {
     else if (activeWeightScheme === 'karbon')    bobot = BOBOT['karbon'];
     else                                         bobot = BOBOT['prioritas'][selectedPriorityKey];
 
-    const hasilKendaraan = KENDARAAN.map(k => {
+    // Ambil SATU rute jalan raya (dipakai bersama motor & mobil, karena
+    // OSRM demo server hanya menyediakan profil "driving").
+    const ruteJalan = await getRuteJalanRaya(origin.lat, origin.lng, destLat, destLng);
+
+    const hasilKendaraan = await Promise.all(KENDARAAN.map(async k => {
         if (k.id === 'bus') {
             const busData = hitungDataBus(origin.lat, origin.lng, destLat, destLng);
             if (!busData) {
@@ -861,14 +911,17 @@ function jalankanPencarian() {
                 emisiKg : busData.emisiTotalKg,
                 busData };
         } else {
-            const jarakKm = haversineM(origin.lat, origin.lng, destLat, destLng) / 1000;
+            // Motor & Mobil: pakai jarak rute jalan asli, sama seperti yang
+            // nanti dipakai di panel Detail Perjalanan.
+            const jarakKm = ruteJalan.jarakKm;
             return { ...k, jarakKm,
-                biaya   : k.hitungBiaya(jarakKm),
-                waktuMnt: Math.ceil(jarakKm / k.kecepatanKmJam * 60),
-                emisiKg : jarakKm * k.emisiPerKm,
-                busData : null };
+                biaya      : k.hitungBiaya(jarakKm),
+                waktuMnt   : Math.ceil(jarakKm / k.kecepatanKmJam * 60),
+                emisiKg    : jarakKm * k.emisiPerKm,
+                busData    : null,
+                routeCoords: ruteJalan.coords };
         }
-    });
+    }));
 
     const maxBiaya = Math.max(...hasilKendaraan.map(r => r.biaya));
     const maxWaktu = Math.max(...hasilKendaraan.map(r => r.waktuMnt));
@@ -943,9 +996,23 @@ function tampilkanPanelPrioritas() {
         });
     });
 
-    document.getElementById('konfirmasiPrioritasBtn').addEventListener('click', () => {
+    document.getElementById('konfirmasiPrioritasBtn').addEventListener('click', async (e) => {
         activeWeightScheme = 'prioritas';
-        jalankanPencarian();
+        const btn      = e.currentTarget;
+        const teksAsli = btn.textContent;
+        btn.disabled    = true;
+        btn.textContent = 'Mencari rute...';
+        try {
+            await jalankanPencarian();
+        } finally {
+            // FIX: kembalikan tombol ke kondisi semula. Ini penting karena
+            // tombol "Kembali" di panel Rekomendasi cuma menampilkan ulang
+            // panel Prioritas yang SUDAH ADA di DOM (showPanel), bukan
+            // membuatnya dari awal — jadi kalau teksnya tidak direset di sini,
+            // tombol akan nyangkut selamanya di "Mencari rute...".
+            btn.disabled    = false;
+            btn.textContent = teksAsli;
+        }
     });
 }
 
@@ -1055,9 +1122,10 @@ function tampilkanDetailDanRute(kendaraan, bobot, originLat, originLng, destLat,
         tampilRouteInfoBar(namaAsal, namaTujuan);
         tampilkanPanelDetail(kendaraan, bobot, originLat, originLng, destLat, destLng, true); // true = isBusMode
     } else {
-        const osrmUrl =
-            `https://router.project-osrm.org/route/v1/driving/${originLng},${originLat};${destLng},${destLat}?overview=full&geometries=geojson`;
-
+        // FIX: gambar & hitung ulang pakai jarak/koordinat yang SAMA seperti
+        // yang sudah dipakai di panel Rekomendasi Kendaraan (kendaraan.routeCoords
+        // & kendaraan.jarakKm), bukan fetch OSRM baru — supaya angkanya tidak
+        // berubah lagi setelah tombol "Lanjut" ditekan.
         const drawRoute = (coords, jarakKm) => {
             kendaraan            = { ...kendaraan };
             kendaraan.jarakKm    = jarakKm;
@@ -1074,17 +1142,14 @@ function tampilkanDetailDanRute(kendaraan, bobot, originLat, originLng, destLat,
             tampilkanPanelDetail(kendaraan, bobot, originLat, originLng, destLat, destLng);
         };
 
-        fetch(osrmUrl)
-            .then(r => r.json())
-            .then(data => {
-                const coords  = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
-                const jarakKm = data.routes[0].distance / 1000;
-                drawRoute(coords, jarakKm);
-            })
-            .catch(() => {
-                const jarakKm = haversineM(originLat, originLng, destLat, destLng) / 1000;
-                drawRoute([[originLat, originLng], [destLat, destLng]], jarakKm);
-            });
+        if (kendaraan.routeCoords && kendaraan.routeCoords.length) {
+            // Sudah punya rute dari panel Rekomendasi → pakai ulang, tidak fetch lagi.
+            drawRoute(kendaraan.routeCoords, kendaraan.jarakKm);
+        } else {
+            // Fallback (jarang terjadi, mis. dipanggil tanpa lewat panel Rekomendasi)
+            getRuteJalanRaya(originLat, originLng, destLat, destLng)
+                .then(rute => drawRoute(rute.coords, rute.jarakKm));
+        }
     }
 }
 
