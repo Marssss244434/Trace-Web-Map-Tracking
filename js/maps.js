@@ -202,7 +202,7 @@ const BOBOT = {
 // DATA KENDARAAN
 // ======================
 
-const HARGA_BBM      = 13000;
+const HARGA_BBM      = 16250;
 const KONSUMSI_MOTOR = 40;    // km/liter
 const KONSUMSI_MOBIL = 12;    // km/liter
 
