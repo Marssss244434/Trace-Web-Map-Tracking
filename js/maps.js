@@ -265,6 +265,7 @@ fetch('./assets/data/geojson/Halte_K1_Malang.geojson')
         );
         const tempLayer = L.geoJSON(data);
         map.fitBounds(tempLayer.getBounds(), { padding: [50, 50] });
+        tandaiArahSetiapHalte();
     })
     .catch(e => console.warn('ERROR LOAD HALTE:', e));
 
@@ -277,8 +278,72 @@ Promise.all([
     .then(([dataPergi, dataPulang]) => {
         jalurPergiData  = dataPergi;   // Batu → Hamid Rusdi
         jalurPulangData = dataPulang;  // Hamid Rusdi → Batu
+        tandaiArahSetiapHalte();
     })
     .catch(e => console.warn('ERROR LOAD JALUR:', e));
+
+// ======================
+// FIX: TANDAI ARAH TIAP HALTE
+// Banyak halte datang berpasangan (nomor beruntun, lokasi hampir sama
+// tapi di sisi jalan berbeda — mis. No 9 "...Timur" & No 10 "...Barat").
+// Kalau cuma dipilih berdasar jarak lurus terdekat, sistem bisa salah
+// pilih sisi (misal pilih halte yang cuma dilewati bus arah sebaliknya).
+// Di sini tiap halte ditandai lebih dekat ke jalur arah mana:
+//   'jalurPergi'  → dekat rute Batu → Hamid Rusdi (jalurPergiData)
+//   'jalurPulang' → dekat rute Hamid Rusdi → Batu (jalurPulangData)
+// Nanti ini dipakai buat menyaring kandidat halte naik/turun sesuai
+// arah perjalanan yang sebenarnya. Dijalankan begitu HALTE & KEDUA
+// file jalur sudah termuat (dipanggil dari 2 tempat, aman dipanggil
+// berulang berkat pengecekan null di awal).
+// ======================
+
+function jarakTitikKeSegmen(lat, lng, latA, lngA, latB, lngB) {
+    // Proyeksi titik ke segmen garis AB memakai pendekatan bidang datar
+    // (cukup akurat untuk skala kota / jarak pendek).
+    const R = 6371000;
+    const toXY = (lt, lg) => {
+        const latRad = lt * Math.PI / 180;
+        return {
+            x: R * (lg * Math.PI / 180) * Math.cos(latRad),
+            y: R * (lt * Math.PI / 180)
+        };
+    };
+    const P = toXY(lat, lng);
+    const A = toXY(latA, lngA);
+    const B = toXY(latB, lngB);
+    const ABx = B.x - A.x, ABy = B.y - A.y;
+    const APx = P.x - A.x, APy = P.y - A.y;
+    const abLenSq = ABx * ABx + ABy * ABy;
+    let t = abLenSq > 0 ? (APx * ABx + APy * ABy) / abLenSq : 0;
+    t = Math.max(0, Math.min(1, t));
+    const projX = A.x + t * ABx, projY = A.y + t * ABy;
+    const dx = P.x - projX, dy = P.y - projY;
+    return Math.sqrt(dx * dx + dy * dy);
+}
+
+function jarakTitikKeJalur(lat, lng, jalurData) {
+    let jarakMin = Infinity;
+    jalurData.features.forEach(feature => {
+        const coords = feature.geometry.coordinates; // [lng, lat][]
+        for (let i = 1; i < coords.length; i++) {
+            const [lngA, latA] = coords[i - 1];
+            const [lngB, latB] = coords[i];
+            const j = jarakTitikKeSegmen(lat, lng, latA, lngA, latB, lngB);
+            if (j < jarakMin) jarakMin = j;
+        }
+    });
+    return jarakMin;
+}
+
+function tandaiArahSetiapHalte() {
+    if (!halteDataGlobal || !jalurPergiData || !jalurPulangData) return;
+    halteDataGlobal.features.forEach(f => {
+        const [lng, lat] = f.geometry.coordinates;
+        const jarakPergi  = jarakTitikKeJalur(lat, lng, jalurPergiData);
+        const jarakPulang = jarakTitikKeJalur(lat, lng, jalurPulangData);
+        f.properties._arahHalte = jarakPergi <= jarakPulang ? 'jalurPergi' : 'jalurPulang';
+    });
+}
 
 function showHalteLayer() {
     if (halteLayerGroup && !map.hasLayer(halteLayerGroup)) {
@@ -623,10 +688,23 @@ pasangAutocomplete({
 // BUS ROUTE HELPERS
 // ======================
 
-function getHalteTerdekat(lat, lng) {
+// FIX: parameter arahDiinginkan opsional ('jalurPergi' / 'jalurPulang').
+// Kalau diisi, hanya halte yang sudah ditandai (lihat tandaiArahSetiapHalte)
+// cocok dengan arah itu yang dipertimbangkan — supaya tidak salah pilih
+// halte di sisi jalan yang cuma dilewati bus arah sebaliknya. Kalau tidak
+// ada satu pun halte yang cocok arahnya (jarang terjadi), fallback ke
+// semua halte supaya pencarian tetap jalan.
+function getHalteTerdekat(lat, lng, arahDiinginkan) {
     if (!halteDataGlobal) return null;
+
+    let daftar = halteDataGlobal.features;
+    if (arahDiinginkan) {
+        const cocok = daftar.filter(f => f.properties._arahHalte === arahDiinginkan);
+        if (cocok.length) daftar = cocok;
+    }
+
     let terdekat = null, jarakMin = Infinity;
-    halteDataGlobal.features.forEach(f => {
+    daftar.forEach(f => {
         const [fLng, fLat] = f.geometry.coordinates;
         const j = haversineM(lat, lng, fLat, fLng);
         if (j < jarakMin) { jarakMin = j; terdekat = { feature: f, jarak: j }; }
@@ -739,10 +817,28 @@ function getModeAkses(jarakM) {
 // ======================
 
 function hitungDataBus(originLat, originLng, destLat, destLng) {
-    const halteAsalObj   = getHalteTerdekat(originLat, originLng);
-    const halteTujuanObj = getHalteTerdekat(destLat, destLng);
+    // TAHAP 1 (kasar): cari halte terdekat tanpa filter arah, cuma buat
+    // menebak arah perjalanan secara umum (Batu → Hamid Rusdi / sebaliknya).
+    const halteAsalKasar   = getHalteTerdekat(originLat, originLng);
+    const halteTujuanKasar = getHalteTerdekat(destLat, destLng);
 
-    if (!halteAsalObj || !halteTujuanObj) return null;
+    if (!halteAsalKasar || !halteTujuanKasar) return null;
+
+    const noAsalKasar   = halteAsalKasar.feature.properties["No"];
+    const noTujuanKasar = halteTujuanKasar.feature.properties["No"];
+    const datasetKasar  = getArahDataset(noAsalKasar, noTujuanKasar);
+
+    let arahDiinginkan = null;
+    if      (datasetKasar === jalurPergiData)  arahDiinginkan = 'jalurPergi';
+    else if (datasetKasar === jalurPulangData) arahDiinginkan = 'jalurPulang';
+
+    // TAHAP 2 (fix): pilih ULANG halte asal & tujuan, kali ini HANYA di
+    // antara halte yang memang ditandai searah dengan arah perjalanan di
+    // atas. Ini mencegah sistem memilih halte di sisi jalan yang cuma
+    // dilewati bus arah sebaliknya (mis. halte "Timur" kepilih padahal
+    // yang lewat ke arah Batu cuma halte "Barat").
+    const halteAsalObj   = getHalteTerdekat(originLat, originLng, arahDiinginkan) || halteAsalKasar;
+    const halteTujuanObj = getHalteTerdekat(destLat, destLng, arahDiinginkan)     || halteTujuanKasar;
 
     const [hALng, hALat] = halteAsalObj.feature.geometry.coordinates;
     const [hTLng, hTLat] = halteTujuanObj.feature.geometry.coordinates;
@@ -753,11 +849,13 @@ function hitungDataBus(originLat, originLng, destLat, destLng) {
     const modeAsal   = getModeAkses(jarakKendaraanAsalM);
     const modeTujuan = getModeAkses(jarakKendaraanTujuanM);
 
-    // REVISI 9: tentukan dataset (file jalur) yang benar berdasarkan
-    // nomor urut halte, lalu pakai SATU dataset itu saja untuk hitung jarak.
+    // REVISI 9: tentukan dataset (file jalur) final berdasarkan nomor urut
+    // halte yang FINAL (hasil Tahap 2), lalu pakai SATU dataset itu saja
+    // untuk hitung jarak. Fallback ke datasetKasar kalau karena suatu hal
+    // hasil akhirnya sama-sama arah (noHalteAsal === noHalteTujuan).
     const noHalteAsal   = halteAsalObj.feature.properties["No"];
     const noHalteTujuan = halteTujuanObj.feature.properties["No"];
-    const datasetTerpilih = getArahDataset(noHalteAsal, noHalteTujuan);
+    const datasetTerpilih = getArahDataset(noHalteAsal, noHalteTujuan) || datasetKasar;
 
     const segmenBus = cariSegmenBus(hALat, hALng, hTLat, hTLng, datasetTerpilih);
     const jarakBus   = segmenBus.jarakM;
